@@ -51,6 +51,18 @@ start-password-workspace.ps1
 - 清空剪贴板
 - 自动锁定
 
+## 自定义素材
+
+把图片放到 `assets` 目录即可自动生效：
+
+- `assets/cursor.png`：专属鼠标图标，建议 32x32 或更小的透明 PNG。
+- `assets/background.png`：半透明叠加背景图，页面会保留当前浅色底色。
+
+GitHub Pages 地址：
+
+- `https://icey1233.github.io/PageTool/assets/cursor.png`
+- `https://icey1233.github.io/PageTool/assets/background.png`
+
 ## 安全说明
 
 - 数据保存在当前浏览器的 `localStorage`。
