@@ -21,6 +21,10 @@
       --radius: 8px;
       --cursor: url("assets/cursor.png") 4 4, auto;
       --cursor-pointer: url("assets/cursor.png") 4 4, pointer;
+      --spotlight-x: 50vw;
+      --spotlight-y: 50vh;
+      --parallax-x: 0px;
+      --parallax-y: 0px;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       cursor: var(--cursor);
     }
@@ -36,7 +40,7 @@
       background-color: var(--bg);
       background-image: linear-gradient(rgba(246, 247, 244, .38), rgba(246, 247, 244, .38)), url("assets/background.png");
       background-size: cover;
-      background-position: center;
+      background-position: calc(50% + var(--parallax-x)) calc(50% + var(--parallax-y));
       background-attachment: fixed;
       color: var(--ink);
       letter-spacing: 0;
@@ -49,6 +53,19 @@
       z-index: -1;
       pointer-events: none;
       background: rgba(246, 247, 244, .08);
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      background:
+        radial-gradient(circle 170px at var(--spotlight-x) var(--spotlight-y), rgba(255, 255, 255, .42), rgba(255, 255, 255, 0) 62%),
+        radial-gradient(circle 320px at var(--spotlight-x) var(--spotlight-y), rgba(36, 107, 88, .16), rgba(36, 107, 88, 0) 70%);
+      mix-blend-mode: screen;
+      opacity: .82;
     }
 
     button, input, textarea, select {
@@ -70,9 +87,14 @@
       gap: 7px;
       white-space: nowrap;
       cursor: var(--cursor-pointer);
+      transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease;
     }
 
-    button:hover { border-color: #aab8b0; }
+    button:hover {
+      border-color: #aab8b0;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(23, 33, 28, .08);
+    }
     button:disabled { opacity: .55; cursor: var(--cursor); }
 
     button *, .site-row *, .rank-row *, .workspace-btn *, .check-row * {
@@ -282,6 +304,7 @@
       background: rgba(255, 241, 237, .58);
       color: #6f2d1e;
       box-shadow: 0 0 0 3px rgba(186, 77, 54, .12);
+      animation: dropPulse 1s ease-in-out infinite;
     }
 
     .topbar {
@@ -327,11 +350,29 @@
     }
 
     .panel {
+      position: relative;
       background: rgba(255, 255, 255, .52);
       backdrop-filter: blur(12px);
       border: 1px solid var(--line);
       border-radius: var(--radius);
       overflow: hidden;
+      box-shadow: 0 16px 46px rgba(23, 33, 28, .12), inset 0 1px 0 rgba(255, 255, 255, .58);
+      transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(135deg, rgba(255, 255, 255, .42), rgba(255, 255, 255, 0) 34%);
+      opacity: .8;
+    }
+
+    .panel:hover {
+      transform: translateY(-1px);
+      border-color: rgba(36, 107, 88, .26);
+      box-shadow: 0 18px 54px rgba(23, 33, 28, .16), inset 0 1px 0 rgba(255, 255, 255, .7);
     }
 
     .panel-head {
@@ -356,12 +397,15 @@
       min-height: 62px;
       padding: 10px 12px;
       border-bottom: 1px solid var(--line);
+      transition: background .18s ease, transform .18s ease, box-shadow .18s ease;
     }
 
     .site-row:last-child { border-bottom: 0; }
 
     .site-row:hover {
       background: rgba(250, 251, 249, .38);
+      transform: translateX(3px);
+      box-shadow: inset 3px 0 0 rgba(36, 107, 88, .42);
     }
 
     .site-row[draggable="true"] {
@@ -371,6 +415,10 @@
     .site-row.is-dragging {
       opacity: .58;
       cursor: var(--cursor-pointer);
+    }
+
+    .table.is-switching {
+      animation: listIn .26s ease both;
     }
 
     .site-main, .site-meta {
@@ -508,6 +556,7 @@
       color: #c78416;
       border-color: #e5c178;
       background: rgba(255, 247, 223, .58);
+      animation: starPop .34s ease;
     }
 
     .login-btn {
@@ -648,6 +697,36 @@
     }
 
     .hidden { display: none !important; }
+
+    @keyframes listIn {
+      from {
+        opacity: .65;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes starPop {
+      0% { transform: scale(.86) rotate(-8deg); }
+      55% { transform: scale(1.12) rotate(8deg); }
+      100% { transform: scale(1) rotate(0); }
+    }
+
+    @keyframes dropPulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(186, 77, 54, .12); }
+      50% { box-shadow: 0 0 0 6px rgba(186, 77, 54, .20); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001ms !important;
+      }
+    }
 
     svg {
       width: 16px;
@@ -1197,6 +1276,7 @@
 
     function renderSites() {
       const sites = filteredSites();
+      animateSiteTable();
       if (!sites.length) {
         $('siteTable').innerHTML = '<div class="empty"><div><h2>没有匹配的网站</h2><p>新建网站或调整搜索关键词。</p></div></div>';
         return;
@@ -1215,6 +1295,15 @@
         return;
       }
       $('siteTable').innerHTML = sites.map((site) => renderSiteRow(site, state.selectedWorkspaceId)).join('');
+    }
+
+    function animateSiteTable() {
+      const table = $('siteTable');
+      table.classList.remove('is-switching');
+      void table.offsetWidth;
+      table.classList.add('is-switching');
+      clearTimeout(window.siteTableAnimationTimer);
+      window.siteTableAnimationTimer = setTimeout(() => table.classList.remove('is-switching'), 320);
     }
 
     function renderSiteRow(site, sourceWorkspaceId = '') {
@@ -2003,6 +2092,7 @@
 
     function bindEvents() {
       $('unlockBtn').addEventListener('click', unlock);
+      document.addEventListener('pointermove', updatePointerEffects, { passive: true });
       $('masterPassword').addEventListener('keydown', (event) => {
         if (event.key === 'Enter') unlock();
       });
@@ -2154,6 +2244,15 @@
         const row = event.target.closest('[data-rank-site-id]');
         if (row) openSite(row.dataset.rankSiteId);
       });
+    }
+
+    function updatePointerEffects(event) {
+      const x = event.clientX;
+      const y = event.clientY;
+      document.documentElement.style.setProperty('--spotlight-x', `${x}px`);
+      document.documentElement.style.setProperty('--spotlight-y', `${y}px`);
+      document.documentElement.style.setProperty('--parallax-x', `${(x / window.innerWidth - .5) * -14}px`);
+      document.documentElement.style.setProperty('--parallax-y', `${(y / window.innerHeight - .5) * -10}px`);
     }
 
     function boot() {
