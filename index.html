@@ -675,7 +675,7 @@
         </div>
         <label>
           GitHub Token
-          <input id="gistTokenInput" type="password" autocomplete="off" placeholder="需要 gist 权限">
+          <input id="gistTokenInput" type="password" autocomplete="off" placeholder="需要 Gists 读写权限">
         </label>
         <div class="sync-actions">
           <button id="saveSyncBtn" type="button">保存 Token</button>
@@ -1703,9 +1703,28 @@
       });
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(`GitHub Gist 请求失败：${response.status} ${text}`);
+        throw new Error(formatGistError(response.status, text));
       }
       return response.json();
+    }
+
+    function formatGistError(status, text) {
+      let message = '';
+      try {
+        message = JSON.parse(text).message || '';
+      } catch {
+        message = text || '';
+      }
+      if (status === 401) {
+        return 'GitHub Token 无效或已过期，请重新生成 Token。';
+      }
+      if (status === 403 && message.includes('Resource not accessible by personal access token')) {
+        return 'GitHub Token 缺少 Gists 读写权限。Fine-grained token 请在 Account permissions 里把 Gists 设为 Read and write；classic token 请勾选 gist。';
+      }
+      if (status === 404) {
+        return '没有找到同步 Gist，或这个 Token 不能访问它。可以先在有数据的设备点“上传同步”自动创建。';
+      }
+      return `GitHub Gist 请求失败：${status}${message ? ` ${message}` : ''}`;
     }
 
     function bindEvents() {

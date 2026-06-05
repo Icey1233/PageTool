@@ -52,8 +52,9 @@ start-password-workspace.ps1
 - 保存内容会用主密码派生密钥后通过 `AES-GCM` 加密。
 - 主密码不会保存。忘记主密码后无法解密已有数据。
 - 导出的备份仍然是加密内容，需要原主密码解锁。
-- GitHub Gist 同步只上传加密后的密文。只需要填写带 `gist` 权限的 Token；Gist 会自动查找或创建，相关同步信息会写入加密密码库，之后输入同一个主密码会自动回填。
-- 首次配置前，GitHub Token 会临时保存在当前浏览器本地；建议只使用带 `gist` 权限的 token。
+- GitHub Gist 同步只上传加密后的密文。只需要填写 Token；Gist 会自动查找或创建，相关同步信息会写入加密密码库，之后输入同一个主密码会自动回填。
+- Fine-grained token 需要在 `Account permissions` 里把 `Gists` 设为 `Read and write`；classic token 需要勾选 `gist`。
+- 首次配置前，GitHub Token 会临时保存在当前浏览器本地；建议只给它 Gist 同步需要的最小权限。
 - 使用公共电脑时，使用后请锁定并清空剪贴板。
 
 ## 快速登录边界
