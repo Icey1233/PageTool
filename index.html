@@ -1400,12 +1400,21 @@
         toast('当前视图没有可打开的网站');
         return;
       }
-      sites.forEach((site) => window.open(site.url, '_blank', 'noopener'));
+      const openedTabs = sites.map(() => window.open('about:blank', '_blank'));
+      const blockedCount = openedTabs.filter((tab) => !tab).length;
+      openedTabs.forEach((tab, index) => {
+        if (!tab) return;
+        tab.opener = null;
+        tab.location.href = sites[index].url;
+      });
       const now = new Date().toISOString();
       sites.forEach((site) => {
         site.lastUsedAt = now;
       });
-      await saveAndRender(`已打开 ${sites.length} 个网站`);
+      await saveAndRender(blockedCount
+        ? `浏览器拦截了 ${blockedCount} 个标签，请允许此站点弹出窗口后重试`
+        : `已打开 ${sites.length} 个网站`
+      );
     }
 
     async function quickLogin(id) {
