@@ -204,6 +204,17 @@
       gap: 8px;
     }
 
+    .sync-section {
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .sync-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
     .workspace-list {
       display: grid;
       gap: 6px;
@@ -557,6 +568,27 @@
           </select>
         </label>
       </div>
+
+      <div class="side-section sync-section">
+        <div>
+          <h3>Gist 同步</h3>
+          <p class="muted">只同步加密密文，不上传明文密码</p>
+        </div>
+        <label>
+          GitHub Token
+          <input id="gistTokenInput" type="password" autocomplete="off" placeholder="需要 gist 权限">
+        </label>
+        <label>
+          Gist ID
+          <input id="gistIdInput" autocomplete="off" placeholder="首次上传后自动生成">
+        </label>
+        <div class="sync-actions">
+          <button id="saveSyncBtn" type="button">保存设置</button>
+          <button id="pushGistBtn" class="primary" type="button">上传同步</button>
+          <button id="pullGistBtn" type="button">拉取同步</button>
+        </div>
+        <p id="syncStatus" class="muted">未配置同步</p>
+      </div>
     </aside>
 
     <main>
@@ -676,6 +708,8 @@
 
   <script>
     const STORAGE_KEY = 'login-workbench:vault';
+    const SYNC_SETTINGS_KEY = 'login-workbench:gist-sync';
+    const GIST_FILENAME = 'password-workspace-vault.json';
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
     const state = {
@@ -686,7 +720,8 @@
       selectedWorkspaceId: null,
       editingWorkspaceId: null,
       autoLockMinutes: 15,
-      autoLockTimer: null
+      autoLockTimer: null,
+      sync: { token: '', gistId: '', lastSyncAt: '' }
     };
 
     const $ = (id) => document.getElementById(id);
@@ -1195,6 +1230,117 @@
       }
     }
 
+    function loadSyncSettings() {
+      try {
+        state.sync = { ...state.sync, ...(JSON.parse(localStorage.getItem(SYNC_SETTINGS_KEY)) || {}) };
+      } catch {
+        state.sync = { token: '', gistId: '', lastSyncAt: '' };
+      }
+      $('gistTokenInput').value = state.sync.token || '';
+      $('gistIdInput').value = state.sync.gistId || '';
+      renderSyncStatus();
+    }
+
+    function saveSyncSettings() {
+      state.sync.token = $('gistTokenInput').value.trim();
+      state.sync.gistId = $('gistIdInput').value.trim();
+      persistSyncSettings();
+      renderSyncStatus('同步设置已保存');
+    }
+
+    function persistSyncSettings() {
+      localStorage.setItem(SYNC_SETTINGS_KEY, JSON.stringify(state.sync));
+    }
+
+    function renderSyncStatus(message) {
+      const configured = state.sync.token && state.sync.gistId;
+      const lastSync = state.sync.lastSyncAt ? `，上次同步 ${new Date(state.sync.lastSyncAt).toLocaleString('zh-CN')}` : '';
+      $('syncStatus').textContent = message || (configured ? `已配置 Gist${lastSync}` : '未配置同步');
+    }
+
+    async function pushToGist() {
+      const token = $('gistTokenInput').value.trim();
+      let gistId = $('gistIdInput').value.trim();
+      const encryptedVault = localStorage.getItem(STORAGE_KEY);
+      if (!token) {
+        toast('请先填写 GitHub Token');
+        return;
+      }
+      if (!encryptedVault) {
+        toast('没有可同步的加密数据');
+        return;
+      }
+
+      const payload = {
+        description: 'Password Workspace encrypted vault',
+        public: false,
+        files: {
+          [GIST_FILENAME]: {
+            content: encryptedVault
+          }
+        }
+      };
+
+      const response = await gistRequest(gistId ? `https://api.github.com/gists/${gistId}` : 'https://api.github.com/gists', {
+        method: gistId ? 'PATCH' : 'POST',
+        token,
+        body: payload
+      });
+
+      gistId = response.id;
+      state.sync = { token, gistId, lastSyncAt: new Date().toISOString() };
+      $('gistIdInput').value = gistId;
+      persistSyncSettings();
+      renderSyncStatus('已上传加密数据到 Gist');
+      toast('Gist 同步上传完成');
+    }
+
+    async function pullFromGist() {
+      const token = $('gistTokenInput').value.trim();
+      const gistId = $('gistIdInput').value.trim();
+      if (!token || !gistId) {
+        toast('请先填写 Token 和 Gist ID');
+        return;
+      }
+      if (!confirm('拉取会覆盖当前浏览器里的加密数据。继续？')) return;
+
+      const response = await gistRequest(`https://api.github.com/gists/${gistId}`, { method: 'GET', token });
+      const file = response.files && response.files[GIST_FILENAME];
+      if (!file || !file.content) {
+        toast('Gist 中没有找到同步文件');
+        return;
+      }
+
+      const parsed = JSON.parse(file.content);
+      if (!parsed.salt || !parsed.iv || !parsed.data) {
+        toast('Gist 数据格式不正确');
+        return;
+      }
+      localStorage.setItem(STORAGE_KEY, file.content);
+      state.sync = { token, gistId, lastSyncAt: new Date().toISOString() };
+      persistSyncSettings();
+      renderSyncStatus('已从 Gist 拉取加密数据，请重新解锁');
+      lock();
+    }
+
+    async function gistRequest(url, options) {
+      const response = await fetch(url, {
+        method: options.method,
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${options.token}`,
+          'X-GitHub-Api-Version': '2022-11-28',
+          ...(options.body ? { 'Content-Type': 'application/json' } : {})
+        },
+        body: options.body ? JSON.stringify(options.body) : undefined
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`GitHub Gist 请求失败：${response.status} ${text}`);
+      }
+      return response.json();
+    }
+
     function bindEvents() {
       $('unlockBtn').addEventListener('click', unlock);
       $('masterPassword').addEventListener('keydown', (event) => {
@@ -1224,6 +1370,9 @@
       $('openWorkspaceBtn').addEventListener('click', openCurrentWorkspace);
       $('editWorkspaceBtn').addEventListener('click', editSelectedWorkspace);
       $('clearClipboardBtn').addEventListener('click', clearClipboard);
+      $('saveSyncBtn').addEventListener('click', saveSyncSettings);
+      $('pushGistBtn').addEventListener('click', () => pushToGist().catch((error) => toast(error.message)));
+      $('pullGistBtn').addEventListener('click', () => pullFromGist().catch((error) => toast(error.message)));
       $('autoLockSelect').addEventListener('change', (event) => {
         state.autoLockMinutes = Number(event.target.value);
         scheduleAutoLock();
@@ -1271,6 +1420,7 @@
 
     function boot() {
       bindEvents();
+      loadSyncSettings();
       $('firstRunNote').classList.toggle('hidden', Boolean(localStorage.getItem(STORAGE_KEY)));
       $('masterPassword').focus();
     }
