@@ -215,6 +215,17 @@
       gap: 8px;
     }
 
+    .sync-countdown {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f7f8f5;
+      padding: 8px;
+    }
+
     .workspace-list {
       display: grid;
       gap: 6px;
@@ -682,6 +693,10 @@
           <button id="pushGistBtn" class="primary" type="button">上传同步</button>
           <button id="pullGistBtn" type="button">拉取同步</button>
         </div>
+        <div id="syncCountdown" class="sync-countdown hidden">
+          <span id="syncCountdownText" class="muted">15 秒后自动上传</span>
+          <button id="cancelAutoSyncBtn" type="button">取消上传</button>
+        </div>
         <p id="syncStatus" class="muted">未配置同步</p>
       </div>
     </aside>
@@ -822,6 +837,10 @@
       draggingSourceWorkspaceId: null,
       autoLockMinutes: 15,
       autoLockTimer: null,
+      autoSyncTimer: null,
+      autoSyncDueAt: 0,
+      autoSyncInterval: null,
+      autoSyncInFlight: false,
       sync: { token: '', gistId: '', lastSyncAt: '' }
     };
 
@@ -991,9 +1010,10 @@
       };
     }
 
-    async function saveAndRender(message) {
+    async function saveAndRender(message, options = {}) {
       await encryptVault();
       render();
+      if (options.autoSync !== false) scheduleAutoSyncUpload();
       if (message) toast(message);
     }
 
@@ -1528,6 +1548,7 @@
 
     function lock() {
       clearTimeout(state.autoLockTimer);
+      cancelAutoSyncUpload('');
       state.unlocked = false;
       state.key = null;
       state.salt = null;
@@ -1585,6 +1606,11 @@
       state.sync.token = $('gistTokenInput').value.trim();
       await persistSyncSettings();
       renderSyncStatus('Token 已保存');
+      if (state.sync.token && state.unlocked) {
+        scheduleAutoSyncUpload();
+      } else {
+        cancelAutoSyncUpload('');
+      }
     }
 
     function loadLegacySyncSettings() {
@@ -1610,56 +1636,122 @@
       $('syncStatus').textContent = message || (configured ? `已配置 Token${gistState}${lastSync}` : '未配置同步');
     }
 
-    async function pushToGist() {
+    function scheduleAutoSyncUpload() {
+      if (!state.unlocked || state.autoSyncInFlight || !state.sync.token) {
+        renderAutoSyncCountdown();
+        return;
+      }
+      clearTimeout(state.autoSyncTimer);
+      clearInterval(state.autoSyncInterval);
+      state.autoSyncDueAt = Date.now() + 15000;
+      state.autoSyncTimer = setTimeout(() => {
+        runScheduledAutoSync();
+      }, 15000);
+      state.autoSyncInterval = setInterval(renderAutoSyncCountdown, 1000);
+      renderAutoSyncCountdown();
+    }
+
+    function cancelAutoSyncUpload(message = '已取消自动上传') {
+      clearTimeout(state.autoSyncTimer);
+      clearInterval(state.autoSyncInterval);
+      state.autoSyncTimer = null;
+      state.autoSyncInterval = null;
+      state.autoSyncDueAt = 0;
+      renderAutoSyncCountdown();
+      if (message) toast(message);
+    }
+
+    function renderAutoSyncCountdown() {
+      const box = $('syncCountdown');
+      if (!box) return;
+      if (!state.autoSyncDueAt) {
+        box.classList.add('hidden');
+        return;
+      }
+      const seconds = Math.max(0, Math.ceil((state.autoSyncDueAt - Date.now()) / 1000));
+      $('syncCountdownText').textContent = seconds > 0 ? `${seconds} 秒后自动上传` : '正在自动上传...';
+      box.classList.remove('hidden');
+    }
+
+    async function runScheduledAutoSync() {
+      clearTimeout(state.autoSyncTimer);
+      clearInterval(state.autoSyncInterval);
+      state.autoSyncTimer = null;
+      state.autoSyncInterval = null;
+      state.autoSyncDueAt = Date.now();
+      renderAutoSyncCountdown();
+      await pushToGist({ automatic: true }).catch((error) => {
+        cancelAutoSyncUpload('');
+        renderSyncStatus(error.message);
+        toast(error.message);
+      });
+    }
+
+    async function pushToGist(options = {}) {
+      const automatic = Boolean(options.automatic);
+      if (!automatic) cancelAutoSyncUpload('');
+      if (state.autoSyncInFlight) {
+        toast('正在上传同步');
+        return;
+      }
       const token = $('gistTokenInput').value.trim();
       if (!token) {
+        cancelAutoSyncUpload('');
         toast('请先填写 GitHub Token');
         return;
       }
-      const foundGistId = await findPasswordWorkspaceGist(token);
-      let gistId = foundGistId || state.sync.gistId || '';
-      state.sync = { token, gistId, lastSyncAt: new Date().toISOString() };
-      await persistSyncSettings();
-      const encryptedVault = localStorage.getItem(STORAGE_KEY);
-      if (!encryptedVault) {
-        toast('没有可同步的加密数据');
-        return;
-      }
-
-      const payload = {
-        description: 'Password Workspace encrypted vault',
-        public: false,
-        files: {
-          [GIST_FILENAME]: {
-            content: encryptedVault
-          }
-        }
-      };
-
-      let response;
+      state.autoSyncInFlight = true;
       try {
-        response = await gistRequest(gistId ? `https://api.github.com/gists/${gistId}` : 'https://api.github.com/gists', {
-          method: gistId ? 'PATCH' : 'POST',
-          token,
-          body: payload
-        });
-      } catch (error) {
-        if (!gistId || foundGistId) throw error;
-        response = await gistRequest('https://api.github.com/gists', {
-          method: 'POST',
-          token,
-          body: payload
-        });
-      }
+        const foundGistId = await findPasswordWorkspaceGist(token);
+        let gistId = foundGistId || state.sync.gistId || '';
+        state.sync = { token, gistId, lastSyncAt: new Date().toISOString() };
+        await persistSyncSettings();
+        const encryptedVault = localStorage.getItem(STORAGE_KEY);
+        if (!encryptedVault) {
+          cancelAutoSyncUpload('');
+          toast('没有可同步的加密数据');
+          return;
+        }
 
-      gistId = response.id;
-      state.sync = { token, gistId, lastSyncAt: new Date().toISOString() };
-      await persistSyncSettings();
-      renderSyncStatus('已上传加密数据到 Gist');
-      toast('Gist 同步上传完成');
+        const payload = {
+          description: 'Password Workspace encrypted vault',
+          public: false,
+          files: {
+            [GIST_FILENAME]: {
+              content: encryptedVault
+            }
+          }
+        };
+
+        let response;
+        try {
+          response = await gistRequest(gistId ? `https://api.github.com/gists/${gistId}` : 'https://api.github.com/gists', {
+            method: gistId ? 'PATCH' : 'POST',
+            token,
+            body: payload
+          });
+        } catch (error) {
+          if (!gistId || foundGistId) throw error;
+          response = await gistRequest('https://api.github.com/gists', {
+            method: 'POST',
+            token,
+            body: payload
+          });
+        }
+
+        gistId = response.id;
+        state.sync = { token, gistId, lastSyncAt: new Date().toISOString() };
+        await persistSyncSettings();
+        cancelAutoSyncUpload('');
+        renderSyncStatus(automatic ? '已自动上传加密数据到 Gist' : '已上传加密数据到 Gist');
+        toast(automatic ? '自动同步完成' : 'Gist 同步上传完成');
+      } finally {
+        state.autoSyncInFlight = false;
+      }
     }
 
     async function pullFromGist() {
+      cancelAutoSyncUpload('');
       const token = $('gistTokenInput').value.trim();
       if (!token) {
         toast('请先填写 GitHub Token');
@@ -1768,6 +1860,7 @@
       $('saveSyncBtn').addEventListener('click', saveSyncSettings);
       $('pushGistBtn').addEventListener('click', () => pushToGist().catch((error) => toast(error.message)));
       $('pullGistBtn').addEventListener('click', () => pullFromGist().catch((error) => toast(error.message)));
+      $('cancelAutoSyncBtn').addEventListener('click', () => cancelAutoSyncUpload());
       $('autoLockSelect').addEventListener('change', (event) => {
         state.autoLockMinutes = Number(event.target.value);
         scheduleAutoLock();
