@@ -537,6 +537,33 @@
       white-space: nowrap;
     }
 
+    .tag-bank {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, .36);
+      min-height: 38px;
+    }
+
+    .tag-chip {
+      min-height: 26px;
+      padding: 0 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: rgba(237, 242, 239, .58);
+      color: #405047;
+    }
+
+    .tag-chip.active {
+      border-color: #e5c178;
+      background: rgba(255, 247, 223, .62);
+      color: #8a5b0b;
+      font-weight: 800;
+    }
+
     .site-group {
       border-bottom: 1px solid var(--line);
     }
@@ -1230,6 +1257,10 @@
                   标签
                   <input id="siteTags" placeholder="多个标签用逗号分隔">
                 </label>
+                <div class="form-block">
+                  <div class="form-block-title">常用标签</div>
+                  <div id="tagBank" class="tag-bank"></div>
+                </div>
                 <label>
                   备注
                   <textarea id="siteNote" placeholder="二次验证、所属项目、负责人等"></textarea>
@@ -1441,17 +1472,24 @@
     }
 
     function normalizeVault(vault) {
+      const sites = Array.isArray(vault.sites) ? vault.sites.map((site) => ({
+        tags: [],
+        note: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastUsedAt: '',
+        openCount: 0,
+        favorite: false,
+        ...site
+      })) : [];
+      const tagSet = new Set(Array.isArray(vault.tags) ? vault.tags.map((tag) => String(tag || '').trim()).filter(Boolean) : []);
+      sites.forEach((site) => (site.tags || []).forEach((tag) => {
+        const normalized = String(tag || '').trim();
+        if (normalized) tagSet.add(normalized);
+      }));
       return {
-        sites: Array.isArray(vault.sites) ? vault.sites.map((site) => ({
-          tags: [],
-          note: '',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          lastUsedAt: '',
-          openCount: 0,
-          favorite: false,
-          ...site
-        })) : [],
+        tags: [...tagSet].sort((a, b) => a.localeCompare(b, 'zh-CN')),
+        sites,
         workspaces: Array.isArray(vault.workspaces) ? vault.workspaces.map((workspace) => ({
           siteIds: [],
           createdAt: new Date().toISOString(),
@@ -1486,6 +1524,7 @@
             favorite: false
           }
         ],
+        tags: ['示例', '可删除'],
         workspaces: [],
         sync: { token: '', gistId: '', lastSyncAt: '' }
       };
@@ -1576,6 +1615,7 @@
       renderRankings();
       renderWorkspaceEditor();
       renderSiteWorkspacePicker();
+      renderTagBank();
       renderEditorTabs();
     }
 
@@ -1843,6 +1883,39 @@
       `).join('');
     }
 
+    function parseTagInput() {
+      return $('siteTags').value.split(',').map((tag) => tag.trim()).filter(Boolean);
+    }
+
+    function rememberTags(tags) {
+      const tagSet = new Set([...(state.vault.tags || [])]);
+      tags.forEach((tag) => {
+        const normalized = String(tag || '').trim();
+        if (normalized) tagSet.add(normalized);
+      });
+      state.vault.tags = [...tagSet].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    }
+
+    function renderTagBank() {
+      const tags = state.vault.tags || [];
+      const active = new Set(parseTagInput());
+      if (!tags.length) {
+        $('tagBank').innerHTML = '<span class="muted">保存过的标签会显示在这里</span>';
+        return;
+      }
+      $('tagBank').innerHTML = tags.map((tag) => `
+        <button class="tag-chip ${active.has(tag) ? 'active' : ''}" type="button" data-tag-chip="${escapeHtml(tag)}">${escapeHtml(tag)}</button>
+      `).join('');
+    }
+
+    function toggleTagChip(tag) {
+      const tags = new Set(parseTagInput());
+      if (tags.has(tag)) tags.delete(tag);
+      else tags.add(tag);
+      $('siteTags').value = [...tags].join(', ');
+      renderTagBank();
+    }
+
     function resetSiteForm() {
       state.activeEditor = 'site';
       $('formTitle').textContent = '新建网站';
@@ -1851,6 +1924,7 @@
       $('deleteSiteBtn').classList.add('hidden');
       renderWorkspaceEditor();
       renderSiteWorkspacePicker();
+      renderTagBank();
     }
 
     function editSite(id) {
@@ -1867,6 +1941,7 @@
       $('siteNote').value = site.note || '';
       $('deleteSiteBtn').classList.remove('hidden');
       renderSiteWorkspacePicker(site.id);
+      renderTagBank();
     }
 
     async function saveSite(event) {
@@ -1880,7 +1955,7 @@
         url: normalizeUrl($('siteUrl').value.trim()),
         username: $('siteUsername').value.trim(),
         password: $('sitePassword').value,
-        tags: $('siteTags').value.split(',').map((tag) => tag.trim()).filter(Boolean),
+        tags: parseTagInput(),
         note: $('siteNote').value.trim(),
         createdAt: existing ? existing.createdAt : now,
         updatedAt: now,
@@ -1894,6 +1969,7 @@
       } else {
         state.vault.sites.unshift(site);
       }
+      rememberTags(site.tags);
       syncSiteWorkspaceMembership(id);
       resetSiteForm();
       await saveAndRender('网站已保存');
@@ -2490,6 +2566,7 @@
           state.vault.sites.push(site);
           byUrl.set(item.url, site);
         }
+        rememberTags(site.tags || []);
         const workspaceId = folderIds.get(item.folder);
         const workspace = state.vault.workspaces.find((item) => item.id === workspaceId);
         if (workspace && !workspace.siteIds.includes(site.id)) {
@@ -2832,6 +2909,12 @@
       $('lockBtn').addEventListener('click', lock);
       $('searchInput').addEventListener('input', renderSites);
       $('siteForm').addEventListener('submit', saveSite);
+      $('siteTags').addEventListener('input', renderTagBank);
+      $('tagBank').addEventListener('click', (event) => {
+        const button = event.target.closest('[data-tag-chip]');
+        if (!button) return;
+        toggleTagChip(button.dataset.tagChip);
+      });
       $('deleteSiteBtn').addEventListener('click', deleteSite);
       $('clearFormBtn').addEventListener('click', resetSiteForm);
       $('togglePasswordBtn').addEventListener('click', togglePasswordField);
