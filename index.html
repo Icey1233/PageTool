@@ -349,6 +349,13 @@
       align-items: start;
     }
 
+    .right-rail {
+      display: grid;
+      gap: 16px;
+      align-content: start;
+      min-width: 0;
+    }
+
     .panel {
       position: relative;
       background: rgba(255, 255, 255, .52);
@@ -614,20 +621,35 @@
       align-items: center;
       gap: 8px;
       min-width: 0;
+      padding-right: 62px;
     }
 
-    .site-card-delete {
+    .site-card-tools {
       position: absolute;
       top: 6px;
       right: 6px;
+      display: flex;
+      gap: 4px;
+      z-index: 2;
+    }
+
+    .site-card-delete,
+    .site-card-favorite {
       width: 26px;
       min-height: 26px;
       padding: 0;
       opacity: .72;
     }
 
-    .site-card-delete:hover {
+    .site-card-delete:hover,
+    .site-card-favorite:hover {
       opacity: 1;
+    }
+
+    .site-card-favorite.is-favorite {
+      color: #c78416;
+      border-color: #e5c178;
+      background: rgba(255, 247, 223, .58);
     }
 
     .site-card *, .panel-actions * {
@@ -679,7 +701,7 @@
 
     .rank-row {
       display: grid;
-      grid-template-columns: 28px minmax(0, 1fr) auto;
+      grid-template-columns: 28px minmax(0, 1fr) auto 36px;
       gap: 10px;
       align-items: center;
       min-height: 44px;
@@ -716,10 +738,29 @@
     }
 
     .workspace-editor {
-      border-top: 1px solid var(--line);
-      padding-top: 12px;
       display: grid;
       gap: 10px;
+    }
+
+    .editor-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 12px 12px 0;
+    }
+
+    .tab-btn.active {
+      border-color: var(--brand);
+      background: rgba(233, 244, 239, .58);
+      color: #124836;
+      font-weight: 800;
+    }
+
+    .site-card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      padding-right: 44px;
     }
 
     .form-block {
@@ -931,6 +972,10 @@
           <svg viewBox="0 0 24 24"><path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path></svg>
           全部网站
         </button>
+        <button id="favoriteSitesBtn" class="workspace-btn" type="button">
+          <svg viewBox="0 0 24 24"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8-6.2-3.2L5.8 21 7 14.2 2 9.3l6.9-1Z"></path></svg>
+          收藏网址
+        </button>
         <div class="workspace-list" id="workspaceList"></div>
       </div>
 
@@ -1008,108 +1053,113 @@
                 <svg viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
                 编辑当前工作区
               </button>
-              <button id="newSiteBtn" class="primary" type="button">
-                <svg viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
-                新建网站
-              </button>
             </div>
           </div>
           <div id="siteTable" class="table"></div>
         </section>
 
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>打开次数排行</h2>
-              <p>按网站打开次数排序</p>
+        <div class="right-rail">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>打开次数排行</h2>
+                <p>按网站打开次数排序</p>
+              </div>
             </div>
-          </div>
-          <div id="rankTable" class="rank-list"></div>
-        </section>
+            <div id="rankTable" class="rank-list"></div>
+          </section>
 
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <h2 id="formTitle">新建网站</h2>
-              <p>账号密码只在解锁后显示和复制</p>
+          <section class="panel">
+            <div class="editor-tabs">
+              <button id="siteTabBtn" class="tab-btn active" type="button">新建网站</button>
+              <button id="workspaceTabBtn" class="tab-btn" type="button">新建工作区</button>
             </div>
-            <button id="clearFormBtn" class="icon-btn" type="button" title="清空表单">
-              <svg viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
-            </button>
-          </div>
-          <form id="siteForm" class="form">
-            <input id="siteId" type="hidden">
-            <label>
-              网站名称
-              <input id="siteName" required placeholder="例如：腾讯云控制台">
-            </label>
-            <label>
-              登录网址
-              <div class="url-tools">
-                <input id="siteUrl" required type="url" placeholder="https://example.com/login">
-                <button id="pasteUrlBtn" class="icon-btn" type="button" title="粘贴网址">
-                  <svg viewBox="0 0 24 24"><rect x="8" y="4" width="8" height="4" rx="1"></rect><path d="M8 6H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2"></path></svg>
+            <div id="siteEditorPanel">
+              <div class="panel-head">
+                <div>
+                  <h2 id="formTitle">新建网站</h2>
+                  <p>账号密码只在解锁后显示和复制</p>
+                </div>
+                <button id="clearFormBtn" class="icon-btn" type="button" title="清空表单">
+                  <svg viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
                 </button>
               </div>
-            </label>
-            <div class="field-grid">
-              <label>
-                登录账号
-                <input id="siteUsername" autocomplete="off" placeholder="邮箱、手机号或用户名">
-              </label>
-              <label>
-                密码
-                <div class="password-tools">
-                  <input id="sitePassword" type="password" autocomplete="new-password" placeholder="保存登录密码">
-                  <button id="togglePasswordBtn" class="icon-btn" type="button" title="显示/隐藏密码">
-                    <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                  </button>
-                  <button id="generatePasswordBtn" class="icon-btn" type="button" title="生成密码">
-                    <svg viewBox="0 0 24 24"><path d="M15 4V2"></path><path d="M15 16v-2"></path><path d="M8 9h2"></path><path d="M20 9h2"></path><path d="m17.8 6.2 1.4-1.4"></path><path d="m10.8 13.2-1.4 1.4"></path><path d="m10.8 4.8-1.4-1.4"></path><path d="m17.8 11.8 1.4 1.4"></path><path d="M15 9h.01"></path><path d="M4 19h16"></path></svg>
-                  </button>
+              <form id="siteForm" class="form">
+                <input id="siteId" type="hidden">
+                <label>
+                  网站名称
+                  <input id="siteName" required placeholder="例如：腾讯云控制台">
+                </label>
+                <label>
+                  登录网址
+                  <div class="url-tools">
+                    <input id="siteUrl" required type="url" placeholder="https://example.com/login">
+                    <button id="pasteUrlBtn" class="icon-btn" type="button" title="粘贴网址">
+                      <svg viewBox="0 0 24 24"><rect x="8" y="4" width="8" height="4" rx="1"></rect><path d="M8 6H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2"></path></svg>
+                    </button>
+                  </div>
+                </label>
+                <div class="field-grid">
+                  <label>
+                    登录账号
+                    <input id="siteUsername" autocomplete="off" placeholder="邮箱、手机号或用户名">
+                  </label>
+                  <label>
+                    密码
+                    <div class="password-tools">
+                      <input id="sitePassword" type="password" autocomplete="new-password" placeholder="保存登录密码">
+                      <button id="togglePasswordBtn" class="icon-btn" type="button" title="显示/隐藏密码">
+                        <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                      </button>
+                      <button id="generatePasswordBtn" class="icon-btn" type="button" title="生成密码">
+                        <svg viewBox="0 0 24 24"><path d="M15 4V2"></path><path d="M15 16v-2"></path><path d="M8 9h2"></path><path d="M20 9h2"></path><path d="m17.8 6.2 1.4-1.4"></path><path d="m10.8 13.2-1.4 1.4"></path><path d="m10.8 4.8-1.4-1.4"></path><path d="m17.8 11.8 1.4 1.4"></path><path d="M15 9h.01"></path><path d="M4 19h16"></path></svg>
+                      </button>
+                    </div>
+                  </label>
                 </div>
-              </label>
-            </div>
-            <label>
-              标签
-              <input id="siteTags" placeholder="多个标签用逗号分隔">
-            </label>
-            <label>
-              备注
-              <textarea id="siteNote" placeholder="二次验证、所属项目、负责人等"></textarea>
-            </label>
-            <div class="form-block">
-              <div class="form-block-title">加入工作区</div>
-              <div id="siteWorkspaces" class="checkbox-list"></div>
-            </div>
-            <div class="form-actions">
-              <button class="primary" type="submit">保存网站</button>
-              <button id="deleteSiteBtn" class="danger hidden" type="button">删除</button>
+                <label>
+                  标签
+                  <input id="siteTags" placeholder="多个标签用逗号分隔">
+                </label>
+                <label>
+                  备注
+                  <textarea id="siteNote" placeholder="二次验证、所属项目、负责人等"></textarea>
+                </label>
+                <div class="form-block">
+                  <div class="form-block-title">加入工作区</div>
+                  <div id="siteWorkspaces" class="checkbox-list"></div>
+                </div>
+                <div class="form-actions">
+                  <button class="primary" type="submit">保存网站</button>
+                  <button id="deleteSiteBtn" class="danger hidden" type="button">删除</button>
+                </div>
+              </form>
             </div>
 
-            <div class="workspace-editor">
-              <div class="brand-row">
+            <div id="workspaceEditorPanel" class="hidden">
+              <div class="panel-head">
                 <div>
-                  <h3>工作区</h3>
+                  <h2>新建工作区</h2>
                   <p>把一次任务需要的网站组合起来</p>
                 </div>
-                <button id="newWorkspaceBtn" type="button">
+                <button id="newWorkspaceBtn" class="icon-btn" type="button" title="新建工作区">
                   <svg viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
-                  新建
                 </button>
               </div>
-              <label>
-                工作区名称
-                <input id="workspaceName" placeholder="例如：上线发布">
-              </label>
-              <div id="workspaceSites" class="checkbox-list"></div>
-              <div class="form-actions">
-                <button id="saveWorkspaceBtn" class="primary" type="button">保存工作区</button>
-                <button id="deleteWorkspaceBtn" class="danger hidden" type="button">删除工作区</button>
+              <div class="workspace-editor form">
+                <label>
+                  工作区名称
+                  <input id="workspaceName" placeholder="例如：上线发布">
+                </label>
+                <div id="workspaceSites" class="checkbox-list"></div>
+                <div class="form-actions">
+                  <button id="saveWorkspaceBtn" class="primary" type="button">保存工作区</button>
+                  <button id="deleteWorkspaceBtn" class="danger hidden" type="button">删除工作区</button>
+                </div>
               </div>
             </div>
-          </form>
-        </section>
+          </section>
+        </div>
       </div>
     </main>
   </section>
@@ -1129,6 +1179,8 @@
       vault: { sites: [], workspaces: [] },
       selectedWorkspaceId: null,
       editingWorkspaceId: null,
+      activeView: 'all',
+      activeEditor: 'site',
       draggingSiteId: null,
       draggingSourceWorkspaceId: null,
       autoLockMinutes: 15,
@@ -1136,6 +1188,7 @@
       autoSyncTimer: null,
       autoSyncDueAt: 0,
       autoSyncInterval: null,
+      autoPullTimer: null,
       autoSyncInFlight: false,
       sync: { token: '', gistId: '', lastSyncAt: '' }
     };
@@ -1220,6 +1273,15 @@
       return { key, salt, vault: JSON.parse(decoder.decode(plain)) };
     }
 
+    async function decryptVaultWithCurrentKey(stored) {
+      const plain = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: base64ToBytes(stored.iv) },
+        state.key,
+        base64ToBytes(stored.data)
+      );
+      return JSON.parse(decoder.decode(plain));
+    }
+
     async function unlock() {
       const password = $('masterPassword').value;
       const storedRaw = localStorage.getItem(STORAGE_KEY);
@@ -1248,6 +1310,7 @@
         $('autoLockSelect').value = String(state.autoLockMinutes);
         scheduleAutoLock();
         loadSyncSettings();
+        startAutoPullSync();
         render();
         toast('已解锁');
       } catch (error) {
@@ -1322,6 +1385,9 @@
       const query = $('searchInput').value.trim().toLowerCase();
       const selected = state.vault.workspaces.find((workspace) => workspace.id === state.selectedWorkspaceId);
       let sites = state.vault.sites;
+      if (state.activeView === 'favorites') {
+        sites = sites.filter((site) => site.favorite);
+      }
       if (selected) {
         const allowed = new Set(selected.siteIds);
         sites = sites.filter((site) => allowed.has(site.id));
@@ -1355,6 +1421,17 @@
       return groups;
     }
 
+    function workspacesForSite(siteId) {
+      return state.vault.workspaces.filter((workspace) => workspace.siteIds.includes(siteId));
+    }
+
+    function renderEditorTabs() {
+      $('siteTabBtn').classList.toggle('active', state.activeEditor === 'site');
+      $('workspaceTabBtn').classList.toggle('active', state.activeEditor === 'workspace');
+      $('siteEditorPanel').classList.toggle('hidden', state.activeEditor !== 'site');
+      $('workspaceEditorPanel').classList.toggle('hidden', state.activeEditor !== 'workspace');
+    }
+
     function render() {
       renderStats();
       renderWorkspaces();
@@ -1362,6 +1439,7 @@
       renderRankings();
       renderWorkspaceEditor();
       renderSiteWorkspacePicker();
+      renderEditorTabs();
     }
 
     function renderStats() {
@@ -1373,9 +1451,13 @@
 
     function renderWorkspaces() {
       const selected = state.vault.workspaces.find((workspace) => workspace.id === state.selectedWorkspaceId);
-      $('allSitesBtn').classList.toggle('active', !selected);
-      $('viewTitle').textContent = selected ? selected.name : '全部网站';
-      $('viewSubtitle').textContent = selected
+      const isFavorites = state.activeView === 'favorites';
+      $('allSitesBtn').classList.toggle('active', !selected && !isFavorites);
+      $('favoriteSitesBtn').classList.toggle('active', isFavorites);
+      $('viewTitle').textContent = isFavorites ? '收藏网址' : (selected ? selected.name : '全部网站');
+      $('viewSubtitle').textContent = isFavorites
+        ? '所有已收藏的网址，并显示所在工作区'
+        : selected
         ? `包含 ${selected.siteIds.length} 个网站，可一键打开`
         : '保存后会自动加密到本机浏览器';
 
@@ -1392,7 +1474,19 @@
       const sites = filteredSites();
       animateSiteTable();
       if (!sites.length) {
-        $('siteTable').innerHTML = '<div class="empty"><div><h2>没有匹配的网站</h2><p>新建网站或调整搜索关键词。</p></div></div>';
+        const emptyTitle = state.activeView === 'favorites' ? '还没有收藏网址' : '没有匹配的网站';
+        const emptyCopy = state.activeView === 'favorites' ? '在网站卡片或排行榜点星标后，会出现在这里。' : '新建网站或调整搜索关键词。';
+        $('siteTable').innerHTML = `<div class="empty"><div><h2>${emptyTitle}</h2><p>${emptyCopy}</p></div></div>`;
+        return;
+      }
+      if (state.activeView === 'favorites') {
+        $('siteTable').innerHTML = `
+          <section class="site-group">
+            <div class="site-card-grid">
+              ${sites.map((site) => renderCompactSiteCard(site, '')).join('')}
+            </div>
+          </section>
+        `;
         return;
       }
       if (!state.selectedWorkspaceId) {
@@ -1469,9 +1563,13 @@
 
     function renderCompactSiteCard(site, sourceWorkspaceId = '') {
       const faviconUrl = getFaviconUrl(site.url);
+      const workspaceNames = workspacesForSite(site.id).map((workspace) => workspace.name);
       return `
         <article class="site-card" draggable="true" data-site-id="${site.id}" data-source-workspace-id="${escapeHtml(sourceWorkspaceId)}" title="点击打开，拖到左侧工作区可移动或复制">
-          <button class="site-card-delete danger" type="button" title="删除网站" data-delete-site="${site.id}">×</button>
+          <div class="site-card-tools">
+            <button class="site-card-favorite favorite-btn ${site.favorite ? 'is-favorite' : ''}" type="button" title="${site.favorite ? '取消收藏' : '收藏'}" data-favorite="${site.id}">${icons.star}</button>
+            <button class="site-card-delete danger" type="button" title="删除网站" data-delete-site="${site.id}">×</button>
+          </div>
           <div class="site-card-head">
             <span class="site-icon" aria-hidden="true">
               <span class="site-letter">${escapeHtml(getSiteLetter(site))}</span>
@@ -1485,6 +1583,11 @@
               <div class="site-url" title="${escapeHtml(site.url)}">${escapeHtml(site.url)}</div>
             </div>
           </div>
+          ${state.activeView === 'favorites' ? `
+            <div class="site-card-meta">
+              ${(workspaceNames.length ? workspaceNames : ['默认工作区']).map((name) => `<span class="tag">${escapeHtml(name)}</span>`).join('')}
+            </div>
+          ` : ''}
         </article>
       `;
     }
@@ -1515,6 +1618,7 @@
             </div>
           </div>
           <span class="pill">${Number(site.openCount || 0)} 次</span>
+          <button class="icon-btn favorite-btn ${site.favorite ? 'is-favorite' : ''}" type="button" title="${site.favorite ? '取消收藏' : '收藏'}" data-favorite="${site.id}">${icons.star}</button>
         </div>
       `).join('');
     }
@@ -1553,6 +1657,7 @@
     }
 
     function resetSiteForm() {
+      state.activeEditor = 'site';
       $('formTitle').textContent = '新建网站';
       $('siteId').value = '';
       $('siteForm').reset();
@@ -1564,6 +1669,7 @@
     function editSite(id) {
       const site = state.vault.sites.find((item) => item.id === id);
       if (!site) return;
+      state.activeEditor = 'site';
       $('formTitle').textContent = '编辑网站';
       $('siteId').value = site.id;
       $('siteName').value = site.name || '';
@@ -1641,9 +1747,11 @@
     }
 
     function newWorkspace() {
+      state.activeEditor = 'workspace';
       state.editingWorkspaceId = null;
       $('workspaceName').value = '';
       renderWorkspaceEditor();
+      renderEditorTabs();
       $('workspaceName').focus();
     }
 
@@ -1909,7 +2017,9 @@
         toast('请先选择一个工作区');
         return;
       }
+      state.activeEditor = 'workspace';
       state.selectedWorkspaceId = workspaceId;
+      state.activeView = 'all';
       state.editingWorkspaceId = workspaceId;
       render();
       renderWorkspaceEditor();
@@ -1985,12 +2095,15 @@
     function lock() {
       clearTimeout(state.autoLockTimer);
       cancelAutoSyncUpload('');
+      stopAutoPullSync();
       state.unlocked = false;
       state.key = null;
       state.salt = null;
       state.vault = { sites: [], workspaces: [] };
       state.selectedWorkspaceId = null;
       state.editingWorkspaceId = null;
+      state.activeView = 'all';
+      state.activeEditor = 'site';
       $('app').classList.add('hidden');
       $('lockScreen').classList.remove('hidden');
       $('masterPassword').focus();
@@ -2033,7 +2146,7 @@
     function loadSyncSettings() {
       const legacy = loadLegacySyncSettings();
       const vaultSync = state.vault && state.vault.sync ? state.vault.sync : {};
-      state.sync = { token: '', gistId: '', lastSyncAt: '', ...legacy, ...vaultSync };
+      state.sync = { token: '', gistId: '', lastSyncAt: '', ...vaultSync, ...legacy };
       $('gistTokenInput').value = state.sync.token || '';
       renderSyncStatus();
     }
@@ -2044,8 +2157,10 @@
       renderSyncStatus('Token 已保存');
       if (state.sync.token && state.unlocked) {
         scheduleAutoSyncUpload();
+        startAutoPullSync();
       } else {
         cancelAutoSyncUpload('');
+        stopAutoPullSync();
       }
     }
 
@@ -2123,6 +2238,21 @@
       });
     }
 
+    function startAutoPullSync() {
+      stopAutoPullSync();
+      if (!state.unlocked || !state.sync.token) return;
+      state.autoPullTimer = setInterval(() => {
+        pullFromGist({ automatic: true }).catch((error) => {
+          renderSyncStatus(error.message);
+        });
+      }, 60000);
+    }
+
+    function stopAutoPullSync() {
+      clearInterval(state.autoPullTimer);
+      state.autoPullTimer = null;
+    }
+
     async function pushToGist(options = {}) {
       const automatic = Boolean(options.automatic);
       if (!automatic) cancelAutoSyncUpload('');
@@ -2186,37 +2316,71 @@
       }
     }
 
-    async function pullFromGist() {
-      cancelAutoSyncUpload('');
+    async function pullFromGist(options = {}) {
+      const automatic = Boolean(options.automatic);
+      if (!automatic) cancelAutoSyncUpload('');
+      if (state.autoSyncInFlight) return;
       const token = $('gistTokenInput').value.trim();
       if (!token) {
-        toast('请先填写 GitHub Token');
+        if (!automatic) toast('请先填写 GitHub Token');
         return;
       }
-      const gistId = await findPasswordWorkspaceGist(token) || state.sync.gistId || '';
-      if (!gistId) {
-        toast('没有找到同步 Gist，请先在有数据的设备上传一次');
-        return;
-      }
-      if (!confirm('拉取会覆盖当前浏览器里的加密数据。继续？')) return;
+      state.autoSyncInFlight = true;
+      try {
+        const gistId = await findPasswordWorkspaceGist(token) || state.sync.gistId || '';
+        if (!gistId) {
+          if (!automatic) toast('没有找到同步 Gist，请先在有数据的设备上传一次');
+          return;
+        }
+        if (!automatic && !confirm('拉取会覆盖当前浏览器里的加密数据。继续？')) return;
 
-      const response = await gistRequest(`https://api.github.com/gists/${gistId}`, { method: 'GET', token });
-      const file = response.files && response.files[GIST_FILENAME];
-      if (!file || !file.content) {
-        toast('Gist 中没有找到同步文件');
-        return;
-      }
+        const response = await gistRequest(`https://api.github.com/gists/${gistId}`, { method: 'GET', token });
+        const file = response.files && response.files[GIST_FILENAME];
+        if (!file || !file.content) {
+          if (!automatic) toast('Gist 中没有找到同步文件');
+          return;
+        }
 
-      const parsed = JSON.parse(file.content);
-      if (!parsed.salt || !parsed.iv || !parsed.data) {
-        toast('Gist 数据格式不正确');
-        return;
+        const parsed = JSON.parse(file.content);
+        if (!parsed.salt || !parsed.iv || !parsed.data) {
+          if (!automatic) toast('Gist 数据格式不正确');
+          return;
+        }
+        const localRaw = localStorage.getItem(STORAGE_KEY);
+        const syncState = { token, gistId, lastSyncAt: new Date().toISOString() };
+        if (file.content === localRaw) {
+          state.sync = syncState;
+          localStorage.setItem(SYNC_SETTINGS_KEY, JSON.stringify(state.sync));
+          renderSyncStatus(automatic ? '自动拉取检查完成，数据已是最新' : '本地数据已是最新');
+          return;
+        }
+
+        if (automatic && state.key) {
+          try {
+            const remote = await decryptVaultWithCurrentKey(parsed);
+            state.vault = normalizeVault(remote);
+            state.sync = syncState;
+            state.vault.sync = { ...state.sync };
+            localStorage.setItem(STORAGE_KEY, file.content);
+            localStorage.setItem(SYNC_SETTINGS_KEY, JSON.stringify(state.sync));
+            render();
+            renderSyncStatus('已自动拉取最新数据');
+            toast('已自动同步最新数据');
+            return;
+          } catch (error) {
+            renderSyncStatus('自动拉取失败：远端数据需要重新解锁');
+            return;
+          }
+        }
+
+        localStorage.setItem(STORAGE_KEY, file.content);
+        state.sync = syncState;
+        localStorage.setItem(SYNC_SETTINGS_KEY, JSON.stringify(state.sync));
+        renderSyncStatus('已从 Gist 拉取加密数据，请重新解锁');
+        lock();
+      } finally {
+        state.autoSyncInFlight = false;
       }
-      localStorage.setItem(STORAGE_KEY, file.content);
-      state.sync = { token, gistId, lastSyncAt: new Date().toISOString() };
-      localStorage.setItem(SYNC_SETTINGS_KEY, JSON.stringify(state.sync));
-      renderSyncStatus('已从 Gist 拉取加密数据，请重新解锁');
-      lock();
     }
 
     async function findPasswordWorkspaceGist(token) {
@@ -2285,10 +2449,6 @@
       $('togglePasswordBtn').addEventListener('click', togglePasswordField);
       $('generatePasswordBtn').addEventListener('click', fillGeneratedPassword);
       $('pasteUrlBtn').addEventListener('click', pasteUrlFromClipboard);
-      $('newSiteBtn').addEventListener('click', () => {
-        resetSiteForm();
-        $('siteName').focus();
-      });
       $('newWorkspaceBtn').addEventListener('click', newWorkspace);
       $('saveWorkspaceBtn').addEventListener('click', saveWorkspace);
       $('deleteWorkspaceBtn').addEventListener('click', deleteWorkspace);
@@ -2311,13 +2471,28 @@
         document.addEventListener(eventName, noteActivity, { passive: true });
       });
       $('allSitesBtn').addEventListener('click', () => {
+        state.activeView = 'all';
         state.selectedWorkspaceId = null;
         render();
+      });
+      $('favoriteSitesBtn').addEventListener('click', () => {
+        state.activeView = 'favorites';
+        state.selectedWorkspaceId = null;
+        render();
+      });
+      $('siteTabBtn').addEventListener('click', () => {
+        resetSiteForm();
+        $('siteName').focus();
+      });
+      $('workspaceTabBtn').addEventListener('click', () => {
+        state.activeEditor = 'workspace';
+        renderEditorTabs();
       });
 
       $('workspaceList').addEventListener('click', (event) => {
         const button = event.target.closest('[data-workspace]');
         if (!button) return;
+        state.activeView = 'all';
         state.selectedWorkspaceId = button.dataset.workspace;
         state.editingWorkspaceId = button.dataset.workspace;
         render();
@@ -2424,6 +2599,7 @@
           return;
         }
         if (enterWorkspace && !event.target.closest('button')) {
+          state.activeView = 'all';
           state.selectedWorkspaceId = enterWorkspace.dataset.enterWorkspace;
           state.editingWorkspaceId = enterWorkspace.dataset.enterWorkspace;
           render();
@@ -2471,7 +2647,12 @@
         state.draggingSourceWorkspaceId = null;
         clearWorkspaceDropTargets();
       });
-      $('rankTable').addEventListener('click', (event) => {
+      $('rankTable').addEventListener('click', async (event) => {
+        const favoriteButton = event.target.closest('[data-favorite]');
+        if (favoriteButton) {
+          await toggleFavorite(favoriteButton.dataset.favorite);
+          return;
+        }
         const row = event.target.closest('[data-rank-site-id]');
         if (row) openSite(row.dataset.rankSiteId);
       });

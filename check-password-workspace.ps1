@@ -54,7 +54,11 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 try {
-  $response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:8017/password-workspace.html" -TimeoutSec 3
+  try {
+    $response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:8017/password-workspace.html" -TimeoutSec 3
+  } catch {
+    $response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:8017/" -TimeoutSec 3
+  }
   Write-Host "HTTP check ok: $($response.StatusCode)"
 } catch {
   Write-Host "HTTP check skipped or failed. The local service may not be running. Run start-password-workspace.cmd and try again."
